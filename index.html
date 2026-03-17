@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRIDIRON — Football Game</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500&display=swap');
+
+  :root {
+    --green: #2d5a1b;
+    --green-light: #3a7523;
+    --line: rgba(255,255,255,0.15);
+    --yellow: #f5c518;
+    --red: #e03030;
+    --blue: #1a3a6b;
+    --white: #f0ece0;
+    --panel: rgba(0,0,0,0.55);
+    --shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0a0a0a;
+    font-family: 'Barlow Condensed', sans-serif;
+    color: var(--white);
+    min-height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── LAYOUT ── */
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  /* ── SCOREBOARD ── */
+  #scoreboard {
+    width: 100%;
+    max-width: 700px;
+    background: #111;
+    border: 2px solid #333;
+    border-radius: 6px;
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    box-shadow: var(--shadow);
+  }
+
+  .team-score {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .team-name {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 2px;
+  }
+
+  .score {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 2.6rem;
+    color: var(--yellow);
+    min-width: 52px;
+    text-align: center;
+    text-shadow: 0 0 20px rgba(245,197,24,0.4);
+  }
+
+  .score-mid {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  #quarter-display {
+    font-size: 0.8rem;
+    color: #aaa;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  #clock {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 1.6rem;
+    color: var(--white);
+    letter-spacing: 2px;
+  }
+
+  #down-display {
+    font-size: 0.85rem;
+    color: var(--yellow);
+    letter-spacing: 2px;
+    text-align: center;
+  }
+
+  /* ── FIELD ── */
+  #field-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 700px;
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  #field {
+    width: 100%;
+    height: 100%;
+    background: var(--green);
+    border-radius: 6px;
+    border: 3px solid #fff;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow), inset 0 0 60px rgba(0,0,0,0.3);
+  }
+
+  /* Yard stripes */
+  .yard-line {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: var(--line);
+  }
+  .yard-label {
+    position: absolute;
+    top: 6px;
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 1px;
+    transform: translateX(-50%);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+  }
+  .yard-label.bot {
+    top: auto;
+    bottom: 6px;
+  }
+
+  /* Alternating dark strips */
+  .field-strip {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: rgba(0,0,0,0.06);
+  }
+
+  /* End zones */
+  .endzone {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 9%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .endzone.left  { left: 0;  background: var(--blue); border-right: 2px solid #fff; }
+  .endzone.right { right: 0; background: var(--red);  border-left:  2px solid #fff; }
+  .endzone-text {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 0.85rem;
+    letter-spacing: 3px;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    color: rgba(255,255,255,0.7);
+  }
+
+  /* LOS line */
+  #los-line {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 3px;
+    background: rgba(255,255,0,0.55);
+    transition: left 0.3s;
+    pointer-events: none;
+  }
+
+  /* First-down marker */
+  #first-down-line {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 3px;
+    background: rgba(255,120,0,0.7);
+    transition: left 0.3s;
+    pointer-events: none;
+  }
+
+  /* Ball */
+  #ball {
+    position: absolute;
+    width: 28px;
+    height: 18px;
+    background: #8B4513;
+    border-radius: 50%;
+    border: 2px solid #5c2e00;
+    transition: left 0.25s ease, top 0.2s ease;
+    transform: translateX(-50%) translateY(-50%);
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+  #ball::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 60%; height: 2px;
+    background: rgba(255,255,255,0.35);
+    transform: translate(-50%,-50%);
+    border-radius: 2px;
+  }
+
+  /* Defender */
+  .defender {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    background: var(--red);
+    border-radius: 50%;
+    border: 2px solid #fff;
+    transform: translateX(-50%) translateY(-50%);
+    z-index: 8;
+    transition: left 0.18s ease, top 0.18s ease;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Player (offense) */
+  #player {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    background: var(--blue);
+    border-radius: 50%;
+    border: 2px solid var(--yellow);
+    transform: translateX(-50%) translateY(-50%);
+    z-index: 9;
+    transition: left 0.08s, top 0.08s;
+  }
+
+  /* ── CONTROLS ── */
+  #controls {
+    width: 100%;
+    max-width: 700px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  #play-info {
+    text-align: center;
+    font-size: 0.9rem;
+    color: #aaa;
+    letter-spacing: 2px;
+    height: 18px;
+  }
+
+  #btn-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 2px;
+    padding: 10px 22px;
+    border: 2px solid currentColor;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+    transition: background 0.15s, transform 0.1s;
+    text-transform: uppercase;
+  }
+  .btn:active { transform: scale(0.96); }
+
+  .btn-run   { color: var(--yellow); }
+  .btn-pass  { color: #5bc8f5; }
+  .btn-punt  { color: #aaa; }
+  .btn-fg    { color: #d4a1ff; }
+  .btn-run:hover  { background: rgba(245,197,24,0.15); }
+  .btn-pass:hover { background: rgba(91,200,245,0.15); }
+  .btn-punt:hover { background: rgba(170,170,170,0.15); }
+  .btn-fg:hover   { background: rgba(212,161,255,0.15); }
+
+  .btn:disabled { opacity: 0.3; cursor: default; }
+
+  /* D-pad for player movement during run */
+  #dpad {
+    display: none;
+    justify-content: center;
+    gap: 6px;
+    align-items: center;
+  }
+  #dpad.active { display: flex; }
+
+  .dpad-btn {
+    width: 52px; height: 52px;
+    background: rgba(255,255,255,0.1);
+    border: 2px solid rgba(255,255,255,0.25);
+    border-radius: 8px;
+    font-size: 1.4rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    transition: background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dpad-btn:active, .dpad-btn.pressed { background: rgba(255,255,255,0.25); }
+
+  /* ── OVERLAY ── */
+  #overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.82);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    z-index: 100;
+  }
+  #overlay.hidden { display: none; }
+
+  #overlay-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 6px;
+    color: var(--yellow);
+    text-shadow: 0 0 40px rgba(245,197,24,0.5);
+    text-align: center;
+  }
+  #overlay-sub {
+    font-size: 1.1rem;
+    color: #ccc;
+    letter-spacing: 3px;
+    text-align: center;
+    max-width: 340px;
+    line-height: 1.5;
+  }
+  #overlay-btn {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 4px;
+    padding: 14px 40px;
+    background: var(--yellow);
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    box-shadow: 0 4px 20px rgba(245,197,24,0.4);
+  }
+  #overlay-btn:hover { transform: scale(1.05); box-shadow: 0 6px 30px rgba(245,197,24,0.6); }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: rgba(0,0,0,0.9);
+    border: 2px solid var(--yellow);
+    color: var(--yellow);
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 1.3rem;
+    letter-spacing: 3px;
+    padding: 10px 28px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+    z-index: 200;
+    white-space: nowrap;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- SCOREBOARD -->
+  <div id="scoreboard">
+    <div class="team-score">
+      <div class="team-name" style="color:#5bc8f5">HOME</div>
+      <div class="score" id="score-home">0</div>
+    </div>
+
+    <div class="score-mid">
+      <div id="quarter-display">1ST QTR</div>
+      <div id="clock">15:00</div>
+      <div id="down-display">1ST &amp; 10</div>
+    </div>
+
+    <div class="team-score">
+      <div class="score" id="score-away">0</div>
+      <div class="team-name" style="color:#e03030">AWAY</div>
+    </div>
+  </div>
+
+  <!-- FIELD -->
+  <div id="field-wrap">
+    <div id="field">
+      <div class="endzone left"><div class="endzone-text">HOME</div></div>
+      <div class="endzone right"><div class="endzone-text">AWAY</div></div>
+      <div id="los-line"></div>
+      <div id="first-down-line"></div>
+      <div id="ball"></div>
+      <div id="player"></div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div id="controls">
+    <div id="play-info">CHOOSE YOUR PLAY</div>
+    <div id="btn-row">
+      <button class="btn btn-run"  id="btn-run"  onclick="startRun()">🏃 RUN</button>
+      <button class="btn btn-pass" id="btn-pass" onclick="startPass()">🏈 PASS</button>
+      <button class="btn btn-punt" id="btn-punt" onclick="doPunt()">👟 PUNT</button>
+      <button class="btn btn-fg"   id="btn-fg"   onclick="doFG()">🎯 FIELD GOAL</button>
+    </div>
+    <div id="dpad">
+      <button class="dpad-btn" id="dpad-left"  onpointerdown="dpadPress('left')"  onpointerup="dpadRelease('left')">◀</button>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="dpad-btn" id="dpad-up"   onpointerdown="dpadPress('up')"   onpointerup="dpadRelease('up')">▲</button>
+        <button class="dpad-btn" id="dpad-down" onpointerdown="dpadPress('down')" onpointerup="dpadRelease('down')">▼</button>
+      </div>
+      <button class="dpad-btn" id="dpad-right" onpointerdown="dpadPress('right')" onpointerup="dpadRelease('right')">▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAY -->
+<div id="overlay">
+  <div id="overlay-title">GRIDIRON</div>
+  <div id="overlay-sub">4 Quarters · Play Calling · Real Time Running · Field Goals</div>
+  <button id="overlay-btn" onclick="startGame()">KICKOFF</button>
+</div>
+
+<!-- TOAST -->
+<div id="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════
+const FIELD_PLAYABLE = 0.82; // fraction of field width that's playable (not end zones)
+const EZ_WIDTH = 0.09;       // end zone fraction each side
+
+let state = {};
+
+function initState() {
+  state = {
+    homeScore: 0,
+    awayScore: 0,
+    quarter: 1,
+    clock: 900,       // seconds (15 min quarter)
+    down: 1,
+    toGo: 10,
+    possession: 'home', // 'home' always attacks right
+    yardLine: 25,      // 0 = home EZ, 100 = away EZ
+    phase: 'select',   // 'select' | 'run' | 'pass' | 'result'
+    ballX: 0, ballY: 0,
+    playerX: 0, playerY: 0,
+    defenders: [],
+    clockRunning: false,
+    clockInterval: null,
+    runInterval: null,
+    dpadState: { up:false, down:false, left:false, right:false },
+    playActive: false,
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+//  DOM HELPERS
+// ═══════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const field = $('field');
+
+function fieldW() { return field.clientWidth; }
+function fieldH() { return field.clientHeight; }
+
+// Convert yard line (0-100) to pixel X on field
+function yardToX(yd) {
+  const ezPx = fieldW() * EZ_WIDTH;
+  const playPx = fieldW() * FIELD_PLAYABLE;
+  return ezPx + (yd / 100) * playPx;
+}
+
+function xToYard(px) {
+  const ezPx = fieldW() * EZ_WIDTH;
+  const playPx = fieldW() * FIELD_PLAYABLE;
+  return Math.max(0, Math.min(100, (px - ezPx) / playPx * 100));
+}
+
+function placeBall(yd, yFrac = 0.5) {
+  const b = $('ball');
+  b.style.left = yardToX(yd) + 'px';
+  b.style.top  = fieldH() * yFrac + 'px';
+  state.ballX = yardToX(yd);
+  state.ballY = fieldH() * yFrac;
+}
+
+function placePlayer(yd, yFrac = 0.5) {
+  const p = $('player');
+  p.style.left = yardToX(yd) + 'px';
+  p.style.top  = fieldH() * yFrac + 'px';
+  state.playerX = yardToX(yd);
+  state.playerY = fieldH() * yFrac;
+}
+
+function updateLOS() {
+  const los = $('los-line');
+  const fd  = $('first-down-line');
+  los.style.left = yardToX(state.yardLine) + 'px';
+  let fdYard = state.yardLine + state.toGo;
+  fd.style.left = yardToX(Math.min(fdYard, 100)) + 'px';
+}
+
+function updateScoreboard() {
+  $('score-home').textContent = state.homeScore;
+  $('score-away').textContent = state.awayScore;
+  const qNames = ['1ST','2ND','3RD','4TH','OT'];
+  $('quarter-display').textContent = (qNames[state.quarter-1] || 'OT') + ' QTR';
+
+  const m = Math.floor(state.clock / 60);
+  const s = Math.floor(state.clock % 60);
+  $('clock').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+
+  const ords = ['','1ST','2ND','3RD','4TH'];
+  $('down-display').textContent = `${ords[state.down]} & ${state.toGo}`;
+}
+
+function buildField() {
+  // Remove old dynamic elements
+  field.querySelectorAll('.yard-line,.yard-label,.field-strip').forEach(e=>e.remove());
+  const yds = [10,20,30,40,50,60,70,80,90];
+  yds.forEach(yd => {
+    const x = yardToX(yd);
+    const line = document.createElement('div');
+    line.className = 'yard-line';
+    line.style.left = x + 'px';
+    field.appendChild(line);
+
+    const label = [10,20,30,40,50].includes(yd) || [60,70,80,90].includes(yd);
+    if (label) {
+      const display = yd > 50 ? 100-yd : yd;
+      ['top','bot'].forEach(pos => {
+        const lbl = document.createElement('div');
+        lbl.className = 'yard-label ' + pos;
+        lbl.style.left = x + 'px';
+        lbl.textContent = display;
+        field.appendChild(lbl);
+      });
+    }
+  });
+
+  // Alternating strips
+  for (let i = 0; i < 10; i++) {
+    if (i % 2 === 0) {
+      const strip = document.createElement('div');
+      strip.className = 'field-strip';
+      strip.style.left  = yardToX(i*10) + 'px';
+      strip.style.width = (yardToX((i+1)*10) - yardToX(i*10)) + 'px';
+      field.appendChild(strip);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════
+let toastTimer;
+function toast(msg, dur=2200) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ═══════════════════════════════════════════════════════
+//  GAME START / OVERLAY
+// ═══════════════════════════════════════════════════════
+function startGame() {
+  $('overlay').classList.add('hidden');
+  initState();
+  buildField();
+  spawnDefenders(3);
+  resetBallToLine();
+  startClock();
+  setPhase('select');
+}
+
+function showOverlay(title, sub, btnText, cb) {
+  $('overlay-title').textContent = title;
+  $('overlay-sub').textContent   = sub;
+  $('overlay-btn').textContent   = btnText;
+  $('overlay-btn').onclick       = cb;
+  $('overlay').classList.remove('hidden');
+}
+
+// ═══════════════════════════════════════════════════════
+//  CLOCK
+// ═══════════════════════════════════════════════════════
+function startClock() {
+  stopClock();
+  state.clockRunning = true;
+  state.clockInterval = setInterval(() => {
+    if (!state.clockRunning) return;
+    state.clock -= 1;
+    if (state.clock <= 0) {
+      state.clock = 0;
+      updateScoreboard();
+      endQuarter();
+      return;
+    }
+    updateScoreboard();
+  }, 1000);
+}
+
+function stopClock() {
+  state.clockRunning = false;
+  if (state.clockInterval) clearInterval(state.clockInterval);
+}
+
+function endQuarter() {
+  stopClock();
+  if (state.quarter < 4) {
+    state.quarter++;
+    state.clock = 900;
+    toast(`Q${state.quarter} STARTS!`, 2500);
+    setTimeout(() => { startClock(); setPhase('select'); }, 2600);
+  } else {
+    // Game over
+    const winner = state.homeScore > state.awayScore ? 'HOME WINS!' :
+                   state.awayScore > state.homeScore ? 'AWAY WINS!' : "IT'S A TIE!";
+    showOverlay(
+      winner,
+      `FINAL: HOME ${state.homeScore} — AWAY ${state.awayScore}`,
+      'PLAY AGAIN',
+      startGame
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  PHASE MANAGEMENT
+// ═══════════════════════════════════════════════════════
+function setPhase(ph) {
+  state.phase = ph;
+  const btnRow = $('btn-row');
+  const dpad   = $('dpad');
+  const info   = $('play-info');
+
+  // Clear defenders from field if going back to select
+  if (ph === 'select') {
+    clearDefenders();
+    spawnDefenders(3);
+    resetBallToLine();
+  }
+
+  btnRow.style.display = ph === 'select' ? 'flex' : 'none';
+  dpad.className       = ph === 'run'    ? 'active' : '';
+
+  if (ph === 'select') info.textContent = 'CHOOSE YOUR PLAY';
+  else if (ph === 'run') info.textContent = 'USE D-PAD TO RUN!';
+  else if (ph === 'pass') info.textContent = 'AIMING...';
+  else info.textContent = '';
+}
+
+// ═══════════════════════════════════════════════════════
+//  DEFENDERS
+// ═══════════════════════════════════════════════════════
+function clearDefenders() {
+  state.defenders.forEach(d => { if (d.el) d.el.remove(); });
+  state.defenders = [];
+}
+
+function spawnDefenders(n) {
+  clearDefenders();
+  const h = fieldH();
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement('div');
+    el.className = 'defender';
+    el.textContent = '🔴';
+    field.appendChild(el);
+
+    // Place defenders 10-30 yards ahead of LOS
+    const yd  = state.yardLine + 10 + Math.random() * 25;
+    const yFr = 0.15 + Math.random() * 0.7;
+    el.style.left = yardToX(Math.min(yd, 95)) + 'px';
+    el.style.top  = h * yFr + 'px';
+
+    state.defenders.push({
+      el,
+      x: yardToX(Math.min(yd, 95)),
+      y: h * yFr,
+      speed: 0.8 + Math.random() * 0.7,
+    });
+  }
+}
+
+function moveDefenders() {
+  const pw = state.playerX;
+  const py = state.playerY;
+  state.defenders.forEach(d => {
+    const dx = pw - d.x;
+    const dy = py - d.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist > 0) {
+      d.x += (dx / dist) * d.speed * 2.2;
+      d.y += (dy / dist) * d.speed * 2.2;
+      d.el.style.left = d.x + 'px';
+      d.el.style.top  = d.y + 'px';
+    }
+    // Tackle check
+    if (dist < 22 && state.phase === 'run' && state.playActive) {
+      endRun(false);
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  RESET BALL TO LINE
+// ═══════════════════════════════════════════════════════
+function resetBallToLine() {
+  placeBall(state.yardLine, 0.5);
+  placePlayer(state.yardLine, 0.5);
+  updateLOS();
+  updateScoreboard();
+}
+
+// ═══════════════════════════════════════════════════════
+//  RUN PLAY
+// ═══════════════════════════════════════════════════════
+function startRun() {
+  if (state.phase !== 'select') return;
+  setPhase('run');
+  state.playActive = true;
+
+  state.runInterval = setInterval(() => {
+    if (!state.playActive) return;
+
+    // Move player based on dpad
+    const spd = 3.5;
+    if (state.dpadState.up)    state.playerY -= spd;
+    if (state.dpadState.down)  state.playerY += spd;
+    if (state.dpadState.left)  state.playerX -= spd * 0.7;
+    if (state.dpadState.right) state.playerX += spd;
+
+    // Clamp to field
+    state.playerX = Math.max(fieldW()*EZ_WIDTH, Math.min(fieldW()*(1-EZ_WIDTH), state.playerX));
+    state.playerY = Math.max(14, Math.min(fieldH()-14, state.playerY));
+
+    $('player').style.left = state.playerX + 'px';
+    $('player').style.top  = state.playerY + 'px';
+    $('ball').style.left   = state.playerX + 'px';
+    $('ball').style.top    = state.playerY + 'px';
+
+    moveDefenders();
+
+    // Check touchdown
+    if (state.playerX >= fieldW() * (1 - EZ_WIDTH)) {
+      endRun(true, true);
+    }
+    // Check tackled behind LOS / OB
+    if (state.playerX < fieldW() * EZ_WIDTH + 2) {
+      endRun(false);
+    }
+  }, 30);
+
+  stopClock(); startClock(); // clock runs during play
+}
+
+function dpadPress(dir)   { state.dpadState[dir] = true;  $('dpad-'+dir).classList.add('pressed'); }
+function dpadRelease(dir) { state.dpadState[dir] = false; $('dpad-'+dir).classList.remove('pressed'); }
+
+// Keyboard support
+document.addEventListener('keydown', e => {
+  if (state.phase !== 'run') return;
+  const map = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',s:'down',a:'left',d:'right'};
+  if (map[e.key]) dpadPress(map[e.key]);
+});
+document.addEventListener('keyup', e => {
+  if (state.phase !== 'run') return;
+  const map = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',s:'down',a:'left',d:'right'};
+  if (map[e.key]) dpadRelease(map[e.key]);
+});
+
+function endRun(scored, td=false) {
+  if (!state.playActive) return;
+  state.playActive = false;
+  clearInterval(state.runInterval);
+  stopClock();
+
+  const newYard = xToYard(state.playerX);
+
+  if (td) {
+    touchdown();
+  } else {
+    const gain = Math.round(newYard - state.yardLine);
+    advanceBall(gain);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  PASS PLAY
+// ═══════════════════════════════════════════════════════
+function startPass() {
+  if (state.phase !== 'select') return;
+  setPhase('pass');
+  stopClock();
+  $('play-info').textContent = 'CLICK FIELD TO THROW!';
+
+  const handler = e => {
+    field.removeEventListener('click', handler);
+    const rect = field.getBoundingClientRect();
+    const tx = e.clientX - rect.left;
+    const ty = e.clientY - rect.top;
+    animatePass(tx, ty);
+  };
+  field.addEventListener('click', handler);
+}
+
+function animatePass(tx, ty) {
+  const b = $('ball');
+  const startX = state.ballX;
+  const startY = state.ballY;
+  let t = 0;
+  const dur = 30;
+
+  // Completion chance based on distance
+  const dist = Math.sqrt((tx-startX)**2 + (ty-startY)**2);
+  const complete = Math.random() < Math.max(0.35, 1 - dist / (fieldW() * 0.9));
+
+  const interval = setInterval(() => {
+    t++;
+    const frac = t / dur;
+    const cx = startX + (tx - startX) * frac;
+    const cy = startY + (ty - startY) * frac - Math.sin(frac * Math.PI) * 60;
+    b.style.left = cx + 'px';
+    b.style.top  = cy + 'px';
+
+    if (t >= dur) {
+      clearInterval(interval);
+      state.ballX = tx;
+      state.ballY = ty;
+
+      if (!complete) {
+        toast('INCOMPLETE PASS!');
+        setTimeout(() => { advanceBall(0); startClock(); }, 1000);
+        return;
+      }
+
+      // Check TD
+      if (tx >= fieldW() * (1 - EZ_WIDTH)) {
+        touchdown();
+        return;
+      }
+
+      const gain = Math.round(xToYard(tx) - state.yardLine);
+      setTimeout(() => { advanceBall(gain); startClock(); }, 500);
+    }
+  }, 16);
+}
+
+// ═══════════════════════════════════════════════════════
+//  ADVANCE BALL / DOWN LOGIC
+// ═══════════════════════════════════════════════════════
+function advanceBall(gain) {
+  const prevYard = state.yardLine;
+  state.yardLine = Math.max(0, Math.min(100, prevYard + gain));
+  state.toGo    -= gain;
+
+  if (gain > 0) toast(`GAIN OF ${gain} YDS`);
+  else if (gain < 0) toast(`LOSS OF ${Math.abs(gain)} YDS`);
+  else toast('NO GAIN');
+
+  if (state.toGo <= 0) {
+    // First down!
+    state.down  = 1;
+    state.toGo  = 10;
+    toast('FIRST DOWN! 🙌');
+  } else {
+    state.down++;
+    if (state.down > 4) {
+      // Turnover on downs
+      toast('TURNOVER ON DOWNS!');
+      changePossession();
+      return;
+    }
+  }
+
+  resetBallToLine();
+  setTimeout(() => setPhase('select'), 600);
+  startClock();
+}
+
+function touchdown() {
+  toast('TOUCHDOWN! 🏈🎉', 3000);
+  stopClock();
+  if (state.possession === 'home') state.homeScore += 7;
+  else state.awayScore += 7;
+  updateScoreboard();
+
+  setTimeout(() => {
+    changePossession();
+    state.yardLine = 25;
+    state.down = 1;
+    state.toGo = 10;
+    resetBallToLine();
+    setPhase('select');
+    startClock();
+  }, 3000);
+}
+
+function changePossession() {
+  state.possession = state.possession === 'home' ? 'away' : 'home';
+  state.yardLine   = 100 - state.yardLine;
+  state.down  = 1;
+  state.toGo  = 10;
+}
+
+// ═══════════════════════════════════════════════════════
+//  PUNT
+// ═══════════════════════════════════════════════════════
+function doPunt() {
+  if (state.phase !== 'select') return;
+  stopClock();
+  const puntYards = 35 + Math.floor(Math.random() * 20);
+  toast(`PUNT — ${puntYards} YDS`);
+  changePossession();
+  state.yardLine = Math.max(5, Math.min(95, 100 - (state.yardLine + puntYards - 100)));
+  // Simplify: after change of possession yardLine is in new perspective
+  state.yardLine = Math.max(5, 100 - puntYards);
+  state.down = 1;
+  state.toGo = 10;
+  setTimeout(() => { resetBallToLine(); setPhase('select'); startClock(); }, 1500);
+}
+
+// ═══════════════════════════════════════════════════════
+//  FIELD GOAL
+// ═══════════════════════════════════════════════════════
+function doFG() {
+  if (state.phase !== 'select') return;
+  stopClock();
+  const dist = 100 - state.yardLine + 17; // approx distance in yards
+  const chance = Math.max(0.15, 1 - (dist - 20) / 70);
+  const good = Math.random() < chance;
+
+  if (good) {
+    toast(`FIELD GOAL — GOOD! ✅ (${dist} YDS)`, 2500);
+    if (state.possession === 'home') state.homeScore += 3;
+    else state.awayScore += 3;
+    updateScoreboard();
+  } else {
+    toast(`FIELD GOAL — NO GOOD ❌ (${dist} YDS)`, 2500);
+    changePossession();
+  }
+
+  setTimeout(() => {
+    state.yardLine = 25;
+    state.down = 1;
+    state.toGo = 10;
+    resetBallToLine();
+    setPhase('select');
+    startClock();
+  }, 2600);
+}
+
+// ═══════════════════════════════════════════════════════
+//  COMPUTER DRIVES (simulated away possession)
+// ═══════════════════════════════════════════════════════
+// After each possession change, if it's the "away" team, auto-simulate a drive
+const origSetPhase = setPhase;
+function setPhase(ph) {
+  origSetPhase(ph);
+  if (ph === 'select' && state.possession === 'away') {
+    setTimeout(simulateAwayPlay, 1200);
+  }
+}
+
+function simulateAwayPlay() {
+  if (state.possession !== 'away' || state.phase !== 'select') return;
+  stopClock();
+
+  const roll = Math.random();
+  let gain;
+
+  if (roll < 0.08) {
+    // TD
+    toast('AWAY TD! 😱', 2500);
+    state.awayScore += 7;
+    updateScoreboard();
+    setTimeout(() => {
+      changePossession();
+      state.yardLine = 25;
+      state.down = 1;
+      state.toGo = 10;
+      resetBallToLine();
+      setPhase('select');
+      startClock();
+    }, 2800);
+    return;
+  } else if (roll < 0.18) {
+    // FG attempt
+    const dist = 100 - state.yardLine + 17;
+    const good = Math.random() < Math.max(0.2, 1-(dist-20)/70);
+    toast(good ? `AWAY FG — GOOD! (${dist} YDS)` : `AWAY FG — NO GOOD`, 2000);
+    if (good) { state.awayScore += 3; updateScoreboard(); }
+    setTimeout(() => {
+      changePossession();
+      state.yardLine = 25;
+      state.down = 1;
+      state.toGo = 10;
+      resetBallToLine();
+      setPhase('select');
+      startClock();
+    }, 2200);
+    return;
+  } else if (roll < 0.30) {
+    gain = -Math.floor(Math.random()*4);
+  } else if (roll < 0.55) {
+    gain = Math.floor(Math.random()*5);
+  } else {
+    gain = Math.floor(5 + Math.random()*12);
+  }
+
+  const newYard = state.yardLine + gain;
+  if (newYard >= 100) {
+    toast('AWAY TD! 😱', 2500);
+    state.awayScore += 7;
+    updateScoreboard();
+    setTimeout(() => {
+      changePossession();
+      state.yardLine = 25;
+      state.down = 1;
+      state.toGo = 10;
+      resetBallToLine();
+      setPhase('select');
+      startClock();
+    }, 2800);
+    return;
+  }
+
+  // Animate ball movement
+  const targetX = yardToX(Math.min(95, newYard));
+  $('ball').style.left = targetX + 'px';
+  state.ballX = targetX;
+
+  gain > 0 ? toast(`AWAY GAINS ${gain}`) : gain < 0 ? toast(`AWAY LOSES ${Math.abs(gain)}`) : toast('AWAY — NO GAIN');
+
+  state.toGo    -= gain;
+  state.yardLine = newYard;
+
+  if (state.toGo <= 0) {
+    state.down = 1;
+    state.toGo = 10;
+  } else {
+    state.down++;
+  }
+
+  if (state.down > 4) {
+    toast('AWAY PUNT');
+    changePossession();
+    state.yardLine = Math.max(5, state.yardLine - 35);
+    state.down = 1;
+    state.toGo = 10;
+  }
+
+  setTimeout(() => {
+    resetBallToLine();
+    setPhase('select');
+    startClock();
+  }, 1600);
+}
+
+// ═══════════════════════════════════════════════════════
+//  RESIZE
+// ═══════════════════════════════════════════════════════
+window.addEventListener('resize', () => {
+  if (state.phase !== undefined && !$('overlay').classList.contains('hidden')) return;
+  buildField();
+  resetBallToLine();
+  spawnDefenders(3);
+});
+
+// Prevent scroll on dpad touch
+document.querySelectorAll('.dpad-btn').forEach(b => {
+  b.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+  b.addEventListener('touchend',   e => e.preventDefault(), { passive: false });
+});
+
+</script>
+</body>
+</html>
